@@ -20,6 +20,7 @@
 * THE SOFTWARE.
 */
 using System;
+using System.Media;
 using System.Globalization;
 using System.Windows.Forms;
 using System.Drawing;
@@ -28,293 +29,416 @@ using SlimDX.DirectInput;
 using SlimDX.XInput;
 using System.Collections.Generic;
 
-namespace JoystickTest
+namespace unicyclegame
 {
-  public partial class MainForm : Form
-  {
-    Joystick joystick;
-
-    JoystickState state = new JoystickState();
-    int numPOVs;
-    int SliderCount;
-
-    void CreateDevice()
+    public partial class MainForm : Form
     {
-      // make sure that DirectInput has been initialized
-      DirectInput dinput = new DirectInput();
+        Joystick joystick;
 
-      // search for devices
-      foreach (DeviceInstance device in dinput.GetDevices(DeviceClass.GameController, DeviceEnumerationFlags.AttachedOnly))
-      {
-        // create the device
-        try
+        JoystickState state = new JoystickState();
+        int numPOVs;
+        int SliderCount;
+        double tilt;
+
+        void CreateDevice()
         {
-          joystick = new Joystick(dinput, device.InstanceGuid);
-          joystick.SetCooperativeLevel(this, CooperativeLevel.Exclusive | CooperativeLevel.Foreground);
-          break;
+            // make sure that DirectInput has been initialized
+            DirectInput dinput = new DirectInput();
+
+            // search for devices
+            foreach (DeviceInstance device in dinput.GetDevices(DeviceClass.GameController, DeviceEnumerationFlags.AttachedOnly))
+            {
+                // create the device
+                try
+                {
+                    joystick = new Joystick(dinput, device.InstanceGuid);
+                    joystick.SetCooperativeLevel(this, CooperativeLevel.Exclusive | CooperativeLevel.Foreground);
+                    break;
+                }
+                catch (DirectInputException)
+                {
+                }
+            }
+
+            if (joystick == null)
+            {
+                MessageBox.Show("There are no joysticks attached to the system.");
+                return;
+            }
+
+            foreach (DeviceObjectInstance deviceObject in joystick.GetObjects())
+            {
+                if ((deviceObject.ObjectType & ObjectDeviceType.Axis) != 0)
+                    joystick.GetObjectPropertiesById((int)deviceObject.ObjectType).SetRange(-1000, 1000);
+
+                UpdateControl(deviceObject);
+            }
+
+            // acquire the device
+            joystick.Acquire();
+
+            // set the timer to go off 12 times a second to read input
+            // NOTE: Normally applications would read this much faster.
+            // This rate is for demonstration purposes only.
+            timer.Interval = 1000 / 12;
+            timer.Start();
         }
-        catch (DirectInputException)
+
+        void ReadImmediateData()
         {
+            if (joystick.Acquire().IsFailure)
+                return;
+
+            if (joystick.Poll().IsFailure)
+                return;
+
+            state = joystick.GetCurrentState();
+            if (Result.Last.IsFailure)
+                return;
+
+            UpdateUI();
         }
-      }
 
-      if (joystick == null)
-      {
-        MessageBox.Show("There are no joysticks attached to the system.");
-        return;
-      }
-
-      foreach (DeviceObjectInstance deviceObject in joystick.GetObjects())
-      {
-        if ((deviceObject.ObjectType & ObjectDeviceType.Axis) != 0)
-          joystick.GetObjectPropertiesById((int)deviceObject.ObjectType).SetRange(-1000, 1000);
-
-        UpdateControl(deviceObject);
-      }
-
-      // acquire the device
-      joystick.Acquire();
-
-      // set the timer to go off 12 times a second to read input
-      // NOTE: Normally applications would read this much faster.
-      // This rate is for demonstration purposes only.
-      timer.Interval = 1000 / 12;
-      timer.Start();
-    }
-
-    void ReadImmediateData()
-    {
-      if (joystick.Acquire().IsFailure)
-        return;
-
-      if (joystick.Poll().IsFailure)
-        return;
-
-      state = joystick.GetCurrentState();
-      if (Result.Last.IsFailure)
-        return;
-
-      UpdateUI();
-    }
-
-    void ReleaseDevice()
-    {
-      timer.Stop();
-
-      if (joystick != null)
-      {
-        joystick.Unacquire();
-        joystick.Dispose();
-      }
-      joystick = null;
-    }
-
-    #region Boilerplate
-
-    public Image uniImage;
-    public MainForm()
-    {
-      InitializeComponent();
-      uniImage = (Image)unicycle.Image.Clone();
-      UpdateUI();
-
-    }
-
-    private void timer_Tick(object sender, EventArgs e)
-    {
-      ReadImmediateData();
-    }
-
-    private void exitButton_Click(object sender, EventArgs e)
-    {
-      ReleaseDevice();
-      Close();
-    }
-
-    /// <summary>
-    /// Creates a new Image containing the same image only rotated
-    /// </summary>
-    /// <param name=""image"">The <see cref=""System.Drawing.Image"/"> to rotate
-    /// <param name=""offset"">The position to rotate from.
-    /// <param name=""angle"">The amount to rotate the image, clockwise, in degrees
-    /// <returns>A new <see cref=""System.Drawing.Bitmap"/"> of the same size rotated.</see>
-    /// <exception cref=""System.ArgumentNullException"">Thrown if <see cref=""image"/"> 
-    /// is null.</see>
-    public static Bitmap RotateImage(Image image, PointF offset, float angle)
-    {
-      if (image == null)
-        throw new ArgumentNullException("image");
-
-      //create a new empty bitmap to hold rotated image
-      Bitmap rotatedBmp = new Bitmap(image.Width, image.Height);
-      rotatedBmp.SetResolution(image.HorizontalResolution, image.VerticalResolution);
-
-      //make a graphics object from the empty bitmap
-      Graphics g = Graphics.FromImage(rotatedBmp);
-
-      //Put the rotation point in the center of the image
-      g.TranslateTransform(offset.X, offset.Y);
-
-      //rotate the image
-      g.RotateTransform(angle);
-
-      //move the image back
-      g.TranslateTransform(-offset.X, -offset.Y);
-
-      //draw passed in image onto graphics object
-      g.DrawImage(image, new PointF(0, 0));
-
-      return rotatedBmp;
-    }
-
-    void UpdateUI()
-    {
-      if (joystick == null)
-        createDeviceButton.Text = "Create Device";
-      else
-        createDeviceButton.Text = "Release Device";
-
-      string strText = null;
-
-      unicycle.Image = RotateImage(uniImage, new PointF(0, 0), state.X / 360);
-
-      label_X.Text = state.X.ToString(CultureInfo.CurrentCulture);
-      label_Y.Text = state.Y.ToString(CultureInfo.CurrentCulture);
-      label_Z.Text = state.Z.ToString(CultureInfo.CurrentCulture);
-
-      label_XRot.Text = state.RotationX.ToString(CultureInfo.CurrentCulture);
-      label_YRot.Text = state.RotationY.ToString(CultureInfo.CurrentCulture);
-      label_ZRot.Text = state.RotationZ.ToString(CultureInfo.CurrentCulture);
-
-      int[] slider = state.GetSliders();
-
-      label_S0.Text = slider[0].ToString(CultureInfo.CurrentCulture);
-      label_S1.Text = slider[1].ToString(CultureInfo.CurrentCulture);
-
-      int[] pov = state.GetPointOfViewControllers();
-
-      label_P0.Text = pov[0].ToString(CultureInfo.CurrentCulture);
-      label_P1.Text = pov[1].ToString(CultureInfo.CurrentCulture);
-      label_P2.Text = pov[2].ToString(CultureInfo.CurrentCulture);
-      label_P3.Text = pov[3].ToString(CultureInfo.CurrentCulture);
-
-      bool[] buttons = state.GetButtons();
-
-
-      for (int b = 0; b < buttons.Length; b++)
-      {
-        if (buttons[b])
-          strText += b.ToString("00 ", CultureInfo.CurrentCulture);
-      }
-      label_ButtonList.Text = strText;
-    }
-
-    void UpdateControl(DeviceObjectInstance d)
-    {
-      if (ObjectGuid.XAxis == d.ObjectTypeGuid)
-      {
-        label_XAxis.Enabled = true;
-        label_X.Enabled = true;
-      }
-      if (ObjectGuid.YAxis == d.ObjectTypeGuid)
-      {
-        label_YAxis.Enabled = true;
-        label_Y.Enabled = true;
-      }
-      if (ObjectGuid.ZAxis == d.ObjectTypeGuid)
-      {
-        label_ZAxis.Enabled = true;
-        label_Z.Enabled = true;
-      }
-      if (ObjectGuid.RotationalXAxis == d.ObjectTypeGuid)
-      {
-        label_XRotation.Enabled = true;
-        label_XRot.Enabled = true;
-      }
-      if (ObjectGuid.RotationalYAxis == d.ObjectTypeGuid)
-      {
-        label_YRotation.Enabled = true;
-        label_YRot.Enabled = true;
-      }
-      if (ObjectGuid.RotationalZAxis == d.ObjectTypeGuid)
-      {
-        label_ZRotation.Enabled = true;
-        label_ZRot.Enabled = true;
-      }
-
-      if (ObjectGuid.Slider == d.ObjectTypeGuid)
-      {
-        switch (SliderCount++)
+        void ReleaseDevice()
         {
-          case 0:
-            label_Slider0.Enabled = true;
-            label_S0.Enabled = true;
-            break;
+            timer.Stop();
 
-          case 1:
-            label_Slider1.Enabled = true;
-            label_S1.Enabled = true;
-            break;
+            if (joystick != null)
+            {
+                joystick.Unacquire();
+                joystick.Dispose();
+            }
+            joystick = null;
         }
-      }
 
-      if (ObjectGuid.PovController == d.ObjectTypeGuid)
-      {
-        switch (numPOVs++)
+        #region Boilerplate
+
+        public Image uniImage;
+        public Controller c;
+        int t, time;
+
+        System.IO.Stream fallLeft, fallRight;
+        System.Media.SoundPlayer playLeft, playRight;
+
+        public MainForm()
         {
-          case 0:
-            label_POV0.Enabled = true;
-            label_P0.Enabled = true;
-            break;
 
-          case 1:
-            label_POV1.Enabled = true;
-            label_P1.Enabled = true;
-            break;
+            fallLeft = unicyclegame.Properties.Resources.ResourceManager.GetStream("fallleft");
+            fallRight = unicyclegame.Properties.Resources.ResourceManager.GetStream("fallright");
 
-          case 2:
-            label_POV2.Enabled = true;
-            label_P2.Enabled = true;
-            break;
+            playLeft = new System.Media.SoundPlayer();
+            playLeft.Stream = fallLeft;
 
-          case 3:
-            label_POV3.Enabled = true;
-            label_P3.Enabled = true;
-            break;
+            playRight = new System.Media.SoundPlayer();
+            playRight.Stream = fallRight;
+
+            tilt = 0;
+            t = 0;
+            time = 0;
+            InitializeComponent();
+            uniImage = (Image)unicycle.Image.Clone();
+            c = new Controller(UserIndex.One);
+            unicycle.SizeMode = PictureBoxSizeMode.CenterImage;
+            CreateDevice();
+            UpdateUI();
         }
-      }
+
+        private void timer_Tick(object sender, EventArgs e)
+        {
+            ReadImmediateData();
+        }
+
+        private void exitButton_Click(object sender, EventArgs e)
+        {
+            ReleaseDevice();
+            Close();
+        }
+
+        bool hasrestarted;
+
+        private void restart_Click(object sender, EventArgs e)
+        {
+            hasrestarted = true;
+        }
+
+        /// <summary>
+        /// Creates a new Image containing the same image only rotated
+        /// </summary>
+        /// <param name=""image"">The <see cref=""System.Drawing.Image"/"> to rotate
+        /// <param name=""offset"">The position to rotate from.
+        /// <param name=""angle"">The amount to rotate the image, clockwise, in degrees
+        /// <returns>A new <see cref=""System.Drawing.Bitmap"/"> of the same size rotated.</see>
+        /// <exception cref=""System.ArgumentNullException"">Thrown if <see cref=""image"/"> 
+        /// is null.</see>
+        public static Bitmap RotateImage(Image image, PointF offset, float angle)
+        {
+            if (image == null)
+                throw new ArgumentNullException("image");
+
+            //create a new empty bitmap to hold rotated image
+            Bitmap rotatedBmp = new Bitmap(image.Width, image.Height);
+            rotatedBmp.SetResolution(image.HorizontalResolution, image.VerticalResolution);
+
+            //make a graphics object from the empty bitmap
+            Graphics g = Graphics.FromImage(rotatedBmp);
+
+            //Put the rotation point in the center of the image
+            g.TranslateTransform(offset.X, offset.Y);
+
+            //rotate the image
+            g.RotateTransform(angle);
+
+            //move the image back
+            g.TranslateTransform(-offset.X, -offset.Y);
+
+            //draw passed in image onto graphics object
+            g.DrawImage(image, new PointF(0, 0));
+
+            return rotatedBmp;
+        }
+
+        int initState;
+        void UpdateUI()
+        {
+            if (hasrestarted == true)
+            {
+                hasrestarted = false;
+                tilt = 0;
+                t = 0;
+                time = 0;
+            }
+            if (initState == 0) initState = state.X;
+
+            if (joystick == null)
+                createDeviceButton.Text = "Create Device";
+            else
+                createDeviceButton.Text = "Release Device";
+
+            string strText = null;
+
+            double gausnoise = Utils.RandGauss(0, 1);
+
+            // int tilt = (int)Math.Pow(5, noise);
+
+            // noise = (int)(tilt + state.X / 10);
+
+            if (state.X < 20 && state.X > -20 )
+            {
+                // t = 0;
+                // initState = state.X;
+                t++;
+            }
+            else
+            {
+                // t++;
+               if (t > 0 && Math.Abs(tilt) < 89) t--;
+                
+                // noise = Utils.RandGauss(0, 1);
+            }
+
+            if (tilt == 0) {
+                tilt = Utils.RandGauss(0, 1);
+            }
+
+            // t++;
+            time++;
+
+            int difficulty = time / 100 + 1;
+
+            difficultyLabel.Text = difficulty.ToString();
+
+            tilt = tilt * Math.Pow((1 + (.01 * difficulty)), t);
+            tilt += state.X / (200);
+
+            if (Math.Abs(tilt) >= 90)
+            {
+                if (tilt > 0)
+                    tilt = 90;
+                else
+                    tilt = -90;
+            }
+
+
+
+
+            vibrate((int)tilt);
+            
+            noiseLabel.Text = tilt.ToString();
+
+           
+            
+
+            unicycle.Image = RotateImage(uniImage, new PointF(290, 230), (int)tilt);
+
+            label_X.Text = state.X.ToString(CultureInfo.CurrentCulture);
+            label_Y.Text = state.Y.ToString(CultureInfo.CurrentCulture);
+            label_Z.Text = state.Z.ToString(CultureInfo.CurrentCulture);
+
+            label_XRot.Text = state.RotationX.ToString(CultureInfo.CurrentCulture);
+            label_YRot.Text = state.RotationY.ToString(CultureInfo.CurrentCulture);
+            label_ZRot.Text = state.RotationZ.ToString(CultureInfo.CurrentCulture);
+
+            int[] slider = state.GetSliders();
+
+            label_S0.Text = slider[0].ToString(CultureInfo.CurrentCulture);
+            label_S1.Text = slider[1].ToString(CultureInfo.CurrentCulture);
+
+            int[] pov = state.GetPointOfViewControllers();
+
+            label_P0.Text = pov[0].ToString(CultureInfo.CurrentCulture);
+            label_P1.Text = pov[1].ToString(CultureInfo.CurrentCulture);
+            label_P2.Text = pov[2].ToString(CultureInfo.CurrentCulture);
+            label_P3.Text = pov[3].ToString(CultureInfo.CurrentCulture);
+
+            bool[] buttons = state.GetButtons();
+
+
+            for (int b = 0; b < buttons.Length; b++)
+            {
+                if (buttons[b])
+                    strText += b.ToString("00 ", CultureInfo.CurrentCulture);
+            }
+            label_ButtonList.Text = strText;
+        }
+
+        void UpdateControl(DeviceObjectInstance d)
+        {
+            if (ObjectGuid.XAxis == d.ObjectTypeGuid)
+            {
+                label_XAxis.Enabled = true;
+                label_X.Enabled = true;
+            }
+            if (ObjectGuid.YAxis == d.ObjectTypeGuid)
+            {
+                label_YAxis.Enabled = true;
+                label_Y.Enabled = true;
+            }
+            if (ObjectGuid.ZAxis == d.ObjectTypeGuid)
+            {
+                label_ZAxis.Enabled = true;
+                label_Z.Enabled = true;
+            }
+            if (ObjectGuid.RotationalXAxis == d.ObjectTypeGuid)
+            {
+                label_XRotation.Enabled = true;
+                label_XRot.Enabled = true;
+            }
+            if (ObjectGuid.RotationalYAxis == d.ObjectTypeGuid)
+            {
+                label_YRotation.Enabled = true;
+                label_YRot.Enabled = true;
+            }
+            if (ObjectGuid.RotationalZAxis == d.ObjectTypeGuid)
+            {
+                label_ZRotation.Enabled = true;
+                label_ZRot.Enabled = true;
+            }
+
+            if (ObjectGuid.Slider == d.ObjectTypeGuid)
+            {
+                switch (SliderCount++)
+                {
+                    case 0:
+                        label_Slider0.Enabled = true;
+                        label_S0.Enabled = true;
+                        break;
+
+                    case 1:
+                        label_Slider1.Enabled = true;
+                        label_S1.Enabled = true;
+                        break;
+                }
+            }
+
+            if (ObjectGuid.PovController == d.ObjectTypeGuid)
+            {
+                switch (numPOVs++)
+                {
+                    case 0:
+                        label_POV0.Enabled = true;
+                        label_P0.Enabled = true;
+                        break;
+
+                    case 1:
+                        label_POV1.Enabled = true;
+                        label_P1.Enabled = true;
+                        break;
+
+                    case 2:
+                        label_POV2.Enabled = true;
+                        label_P2.Enabled = true;
+                        break;
+
+                    case 3:
+                        label_POV3.Enabled = true;
+                        label_P3.Enabled = true;
+                        break;
+                }
+            }
+        }
+
+        private void createDeviceButton_Click(object sender, EventArgs e)
+        {
+            
+
+            
+            
+        }
+
+        private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            ReleaseDevice();
+        }
+
+        #endregion
+
+        bool previousTilt, initialized;
+        private void vibrate(int tilt) {
+            bool isRight = tilt > 0;
+            if (previousTilt != isRight || !initialized) {
+                initialized = true;
+                previousTilt = isRight;
+
+                playRight.Stop();
+                playLeft.Stop();
+
+                if (isRight)
+                {
+                    playRight.Play();
+                }
+                else
+                {
+                    playLeft.Play();
+                }
+            }
+
+
+
+            c.SetVibration(new Vibration
+            {
+                LeftMotorSpeed = (ushort)(0 + tilt * (1000 / 90)),
+                RightMotorSpeed = (ushort)(0 - tilt * (1000 / 90))
+            });
+        }
+
+        private void vibrateLeftButton_Click(object sender, EventArgs e)
+        {
+
+            c.SetVibration(new Vibration
+            {
+                LeftMotorSpeed = (ushort)65535,
+                RightMotorSpeed = (ushort)0
+            });
+        }
+
+        private void vibrateRightButton_Click(object sender, EventArgs e)
+        {
+
+            c.SetVibration(new Vibration
+            {
+                LeftMotorSpeed = (ushort)0,
+                RightMotorSpeed = (ushort)65535
+            });
+        }
     }
-
-    private void createDeviceButton_Click(object sender, EventArgs e)
-    {
-      if (joystick == null)
-        CreateDevice();
-      else
-        ReleaseDevice();
-      UpdateUI();
-    }
-
-    private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
-    {
-      ReleaseDevice();
-    }
-
-    #endregion
-
-    private void vibrateLeftButton_Click(object sender, EventArgs e)
-    {
-      Controller c = new Controller(UserIndex.One);
-
-      c.SetVibration(new Vibration
-      {
-        LeftMotorSpeed = (ushort)65535,
-        RightMotorSpeed = (ushort)0
-      });
-    }
-
-    private void vibrateRightButton_Click(object sender, EventArgs e)
-    {
-
-    }
-  }
 }
