@@ -62,11 +62,10 @@ namespace unicyclegame
             this.exitButton = new System.Windows.Forms.Button();
             this.createDeviceButton = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.vibrateRightButton = new System.Windows.Forms.Button();
-            this.vibrateLeftButton = new System.Windows.Forms.Button();
-            this.restart = new System.Windows.Forms.Button();
             this.unicycle = new System.Windows.Forms.PictureBox();
+            this.restart = new System.Windows.Forms.Button();
             this.difficultyLabel = new System.Windows.Forms.Label();
+            this.vibOffButton = new System.Windows.Forms.Button();
             this.groupBox_JoystickState.SuspendLayout();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.unicycle)).BeginInit();
@@ -389,7 +388,7 @@ namespace unicyclegame
             // 
             // exitButton
             // 
-            this.exitButton.Location = new System.Drawing.Point(205, 280);
+            this.exitButton.Location = new System.Drawing.Point(745, 399);
             this.exitButton.Name = "exitButton";
             this.exitButton.Size = new System.Drawing.Size(75, 23);
             this.exitButton.TabIndex = 5;
@@ -415,36 +414,6 @@ namespace unicyclegame
             this.panel1.Size = new System.Drawing.Size(530, 381);
             this.panel1.TabIndex = 7;
             // 
-            // vibrateRightButton
-            // 
-            this.vibrateRightButton.Location = new System.Drawing.Point(195, 328);
-            this.vibrateRightButton.Name = "vibrateRightButton";
-            this.vibrateRightButton.Size = new System.Drawing.Size(89, 23);
-            this.vibrateRightButton.TabIndex = 3;
-            this.vibrateRightButton.Text = "Vibrate Right";
-            this.vibrateRightButton.UseVisualStyleBackColor = true;
-            this.vibrateRightButton.Click += new System.EventHandler(this.vibrateRightButton_Click);
-            // 
-            // vibrateLeftButton
-            // 
-            this.vibrateLeftButton.Location = new System.Drawing.Point(24, 328);
-            this.vibrateLeftButton.Name = "vibrateLeftButton";
-            this.vibrateLeftButton.Size = new System.Drawing.Size(75, 23);
-            this.vibrateLeftButton.TabIndex = 2;
-            this.vibrateLeftButton.Text = "Vibrate Left";
-            this.vibrateLeftButton.UseVisualStyleBackColor = true;
-            this.vibrateLeftButton.Click += new System.EventHandler(this.vibrateLeftButton_Click);
-            // 
-            // restart
-            // 
-            this.restart.Location = new System.Drawing.Point(28, 279);
-            this.restart.Name = "restart";
-            this.restart.Size = new System.Drawing.Size(75, 23);
-            this.restart.TabIndex = 8;
-            this.restart.Text = "Restart";
-            this.restart.UseVisualStyleBackColor = true;
-            this.restart.Click += new System.EventHandler(this.restart_Click);
-            // 
             // unicycle
             // 
             this.unicycle.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
@@ -456,22 +425,41 @@ namespace unicyclegame
             this.unicycle.TabIndex = 1;
             this.unicycle.TabStop = false;
             // 
+            // restart
+            // 
+            this.restart.Location = new System.Drawing.Point(293, 399);
+            this.restart.Name = "restart";
+            this.restart.Size = new System.Drawing.Size(75, 23);
+            this.restart.TabIndex = 8;
+            this.restart.Text = "Restart";
+            this.restart.UseVisualStyleBackColor = true;
+            this.restart.Click += new System.EventHandler(this.restart_Click);
+            // 
             // difficultyLabel
             // 
-            this.difficultyLabel.Location = new System.Drawing.Point(49, 354);
+            this.difficultyLabel.Location = new System.Drawing.Point(61, 306);
             this.difficultyLabel.Name = "difficultyLabel";
             this.difficultyLabel.Size = new System.Drawing.Size(191, 23);
             this.difficultyLabel.TabIndex = 34;
+            // 
+            // vibOffButton
+            // 
+            this.vibOffButton.Location = new System.Drawing.Point(389, 398);
+            this.vibOffButton.Name = "vibOffButton";
+            this.vibOffButton.Size = new System.Drawing.Size(75, 23);
+            this.vibOffButton.TabIndex = 35;
+            this.vibOffButton.Text = "VIbration Off";
+            this.vibOffButton.UseVisualStyleBackColor = true;
+            this.vibOffButton.Click += new System.EventHandler(this.vibOffButton_Click);
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(878, 405);
+            this.ClientSize = new System.Drawing.Size(906, 590);
+            this.Controls.Add(this.vibOffButton);
             this.Controls.Add(this.difficultyLabel);
-            this.Controls.Add(this.vibrateRightButton);
             this.Controls.Add(this.restart);
-            this.Controls.Add(this.vibrateLeftButton);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.createDeviceButton);
             this.Controls.Add(this.exitButton);
@@ -481,6 +469,7 @@ namespace unicyclegame
             this.Name = "MainForm";
             this.Text = "SlimDX - Joystick Sample";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.MainForm_FormClosed);
+            this.Load += new System.EventHandler(this.MainForm_Load);
             this.groupBox_JoystickState.ResumeLayout(false);
             this.groupBox_JoystickState.PerformLayout();
             this.panel1.ResumeLayout(false);
@@ -524,11 +513,10 @@ namespace unicyclegame
         private System.Windows.Forms.Button createDeviceButton;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.PictureBox unicycle;
-        private System.Windows.Forms.Button vibrateRightButton;
-        private System.Windows.Forms.Button vibrateLeftButton;
         private System.Windows.Forms.Label noiseLabel;
         private System.Windows.Forms.Button restart;
         private System.Windows.Forms.Label difficultyLabel;
+        private System.Windows.Forms.Button vibOffButton;
     }
 }
 

@@ -159,6 +159,7 @@ namespace unicyclegame
         private void restart_Click(object sender, EventArgs e)
         {
             hasrestarted = true;
+            isvibrate = false;
         }
 
         /// <summary>
@@ -380,8 +381,7 @@ namespace unicyclegame
         private void createDeviceButton_Click(object sender, EventArgs e)
         {
             
-
-            
+                
             
         }
 
@@ -413,32 +413,39 @@ namespace unicyclegame
             }
 
 
-
-            c.SetVibration(new Vibration
+            if (isvibrate == false) 
+            { 
+                c.SetVibration(new Vibration
+                    {
+                        LeftMotorSpeed = (ushort)(0 + tilt * (1000 / 90)),
+                        RightMotorSpeed = (ushort)(0 - tilt * (1000 / 90))
+                    });
+                }
+            else
             {
-                LeftMotorSpeed = (ushort)(0 + tilt * (1000 / 90)),
-                RightMotorSpeed = (ushort)(0 - tilt * (1000 / 90))
-            });
+                c.SetVibration(new Vibration
+                    {
+                        LeftMotorSpeed = (ushort)0,
+                        RightMotorSpeed = (ushort)0
+                    });
+                }
         }
 
-        private void vibrateLeftButton_Click(object sender, EventArgs e)
+
+        private void MainForm_Load(object sender, EventArgs e)
         {
 
-            c.SetVibration(new Vibration
-            {
-                LeftMotorSpeed = (ushort)65535,
-                RightMotorSpeed = (ushort)0
-            });
         }
-
-        private void vibrateRightButton_Click(object sender, EventArgs e)
+        bool isvibrate;
+        private void vibOffButton_Click(object sender, EventArgs e)
         {
-
-            c.SetVibration(new Vibration
+            if(isvibrate == true){
+                isvibrate=false;
+            }
+            else
             {
-                LeftMotorSpeed = (ushort)0,
-                RightMotorSpeed = (ushort)65535
-            });
+                isvibrate = true;
+            }
         }
     }
 }
