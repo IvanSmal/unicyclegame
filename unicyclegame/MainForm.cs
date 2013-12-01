@@ -21,6 +21,7 @@
 */
 using System;
 using System.Media;
+using System.IO;
 using System.Globalization;
 using System.Windows.Forms;
 using System.Drawing;
@@ -39,6 +40,8 @@ namespace unicyclegame
         int numPOVs;
         int SliderCount;
         double tilt;
+
+        StreamWriter log;
 
         void CreateDevice()
         {
@@ -80,7 +83,7 @@ namespace unicyclegame
             // set the timer to go off 12 times a second to read input
             // NOTE: Normally applications would read this much faster.
             // This rate is for demonstration purposes only.
-            timer.Interval = 1000 / 12;
+            timer.Interval = 1000 / 30;
             timer.Start();
         }
 
@@ -126,6 +129,8 @@ namespace unicyclegame
             fallLeft = unicyclegame.Properties.Resources.ResourceManager.GetStream("fallleft");
             fallRight = unicyclegame.Properties.Resources.ResourceManager.GetStream("fallright");
 
+            log = File.AppendText(Environment.CurrentDirectory + "/" + DateTime.Now.Ticks + ".csv");
+
             playLeft = new System.Media.SoundPlayer();
             playLeft.Stream = fallLeft;
 
@@ -140,6 +145,13 @@ namespace unicyclegame
             c = new Controller(UserIndex.One);
             unicycle.SizeMode = PictureBoxSizeMode.CenterImage;
             CreateDevice();
+
+            blockPanel.Hide();
+
+            startCounterLabel.Text = "Get Ready...";
+            isStartingSequence = true;
+
+            shouldPlaySound = true;
             UpdateUI();
         }
 
@@ -156,10 +168,86 @@ namespace unicyclegame
 
         bool hasrestarted;
 
+        bool isStartingSequence;
+        int startingSequenceTimer;
+
+        int games;
+
+        private void DoStartingSequence()
+        {
+            if (startingSequenceTimer == 20) {
+                isStartingSequence = false;
+                startCounterLabel.Hide();
+                return;
+            }
+
+            if (startingSequenceTimer == 0)
+            {
+                games++;
+
+                levelLabel.Text = games.ToString();
+
+                if (games >= 0)
+                {
+                    shouldVibrate = true;
+                    shouldPlaySound = true;
+                }
+
+                if (games >= 10)
+                {
+                    shouldVibrate = true;
+                    shouldPlaySound = false;
+                }
+
+                if (games >= 20)
+                {
+                    shouldPlaySound = true;
+                    shouldVibrate = false;
+                }
+
+                if (games >= 30)
+                {
+                    shouldPlaySound = false;
+                    shouldVibrate = false;
+                }
+
+                if (games >= 40)
+                {
+                    shouldPlaySound = true;
+                    shouldVibrate = true;
+                    blockPanel.Show();
+                }
+
+                if (games >= 40)
+                {
+                    shouldPlaySound = true;
+                    shouldVibrate = false;
+                    blockPanel.Show();
+                }
+
+
+                initialized = false;
+                playRight.Stop();
+                playLeft.Stop();
+                vibrate(0);
+            }
+
+            if (startingSequenceTimer == 5)
+            {
+                unicycle.Image = RotateImage(uniImage, new PointF(505, 697), 0);
+                startCounterLabel.Show();
+            }
+
+            startCounterLabel.Text = ((int)((19 - startingSequenceTimer) / 5) + 1).ToString();
+
+            startingSequenceTimer++;
+            // Console.WriteLine(startingSequenceTimer);
+        }
+
         private void restart_Click(object sender, EventArgs e)
         {
             hasrestarted = true;
-            isvibrate = false;
+            shouldVibrate = false;
         }
 
         /// <summary>
@@ -201,6 +289,12 @@ namespace unicyclegame
         int initState;
         void UpdateUI()
         {
+            if (isStartingSequence)
+            {
+                DoStartingSequence();
+                return;
+            }
+
             if (hasrestarted == true)
             {
                 hasrestarted = false;
@@ -223,7 +317,9 @@ namespace unicyclegame
 
             // noise = (int)(tilt + state.X / 10);
 
-            if (state.X < 20 && state.X > -20 )
+            double difficulty = (double)time / 300 + 1;
+
+            if (state.X < 50 && state.X > -50 )
             {
                 // t = 0;
                 // initState = state.X;
@@ -232,44 +328,57 @@ namespace unicyclegame
             else
             {
                 // t++;
-               if (t > 0 && Math.Abs(tilt) < 89) t--;
+                if (t > 0 && Math.Abs(tilt) < 89) t --;
                 
                 // noise = Utils.RandGauss(0, 1);
             }
 
-            if (tilt == 0) {
+            if (tilt >-1 && tilt <1) {
                 tilt = Utils.RandGauss(0, 1);
             }
 
             // t++;
             time++;
 
-            int difficulty = time / 100 + 1;
+      
 
-            difficultyLabel.Text = difficulty.ToString();
+            difficultyLabel.Text = (difficulty * 1000).ToString();
 
-            tilt = tilt * Math.Pow((1 + (.01 * difficulty)), t);
-            tilt += state.X / (200);
+            tilt = tilt * Math.Pow((1 + (.005 * difficulty)), t);
+            tilt += state.X / (100);
 
+            int arrayPosition = time;
             if (Math.Abs(tilt) >= 90)
             {
+                isStartingSequence = true;
+                startingSequenceTimer = 0;
                 if (tilt > 0)
+                {
                     tilt = 90;
+                    hasrestarted = true;
+                    shouldVibrate = false;
+                    // System.Threading.Thread.Sleep(1000);
+
+                }
                 else
+                {
                     tilt = -90;
+                    hasrestarted = true;
+                    shouldVibrate = false;
+                    // System.Threading.Thread.Sleep(1000);
+                }
             }
 
 
-
+            log.WriteLine(games + "," + difficulty + "," + tilt + "," + state.X + "," + state.Y);
+           
 
             vibrate((int)tilt);
             
             noiseLabel.Text = tilt.ToString();
-
-           
             
 
-            unicycle.Image = RotateImage(uniImage, new PointF(290, 230), (int)tilt);
+            unicycle.Image = RotateImage(uniImage, new PointF(505, 697), (int)tilt);
 
             label_X.Text = state.X.ToString(CultureInfo.CurrentCulture);
             label_Y.Text = state.Y.ToString(CultureInfo.CurrentCulture);
@@ -392,28 +501,34 @@ namespace unicyclegame
 
         #endregion
 
+        bool shouldPlaySound;
         bool previousTilt, initialized;
         private void vibrate(int tilt) {
-            bool isRight = tilt > 0;
+            bool isRight = tilt >= 0;
             if (previousTilt != isRight || !initialized) {
-                initialized = true;
-                previousTilt = isRight;
+                if (tilt != 0)
+                {
+                    initialized = true;
+                    previousTilt = isRight;
+                }
 
                 playRight.Stop();
                 playLeft.Stop();
 
-                if (isRight)
+                if (tilt != 0 && shouldPlaySound)
                 {
-                    playRight.Play();
-                }
-                else
-                {
-                    playLeft.Play();
+                    if (isRight)
+                    {
+                        playRight.Play();
+                    }
+                    else
+                    {
+                        playLeft.Play();
+                    }
                 }
             }
 
-
-            if (isvibrate == false) 
+            if (shouldVibrate) 
             { 
                 c.SetVibration(new Vibration
                     {
@@ -436,16 +551,30 @@ namespace unicyclegame
         {
 
         }
-        bool isvibrate;
+        bool shouldVibrate;
         private void vibOffButton_Click(object sender, EventArgs e)
         {
-            if(isvibrate == true){
-                isvibrate=false;
-            }
-            else
-            {
-                isvibrate = true;
-            }
+            shouldVibrate = !shouldVibrate;
+        }
+
+        private void difficultyLabel_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void unicycle_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
