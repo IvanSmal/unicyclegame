@@ -218,13 +218,12 @@ namespace unicyclegame
                     blockPanel.Show();
                 }
 
-                if (games >= 40)
+                if (games >= 50)
                 {
                     shouldPlaySound = true;
                     shouldVibrate = false;
                     blockPanel.Show();
                 }
-
 
                 initialized = false;
                 playRight.Stop();
